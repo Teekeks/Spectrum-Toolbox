@@ -64,7 +64,6 @@ def load():
         usr_states = dat['usr_states']
         ch_id = dat.get('ch_id')
         msg_id = dat.get('msg_id')
-        # FIXME implement
 
 
 def safe():
@@ -83,6 +82,7 @@ async def set_available(inter: Interaction, av: int):
         await inter.send('You are not on the list!', ephemeral=True)
         return
     usr_states[str(inter.member.id)] = av
+    safe()
     await inter.defer_update_message()
     await refresh_msg(inter.member.guild)
 
@@ -173,6 +173,7 @@ async def available_command(inter: Interaction):
             await inter.send('User is already on the list!', ephemeral=True)
             return
         usr_states[str(usr)] = S_UNKNOWN
+        safe()
         await refresh_msg(inter.member.guild)
         await inter.send('User was added to the list!', ephemeral=True)
         return
@@ -182,6 +183,7 @@ async def available_command(inter: Interaction):
             await inter.send('User is not on the list!', ephemeral=True)
             return
         usr_states.pop(str(usr), None)
+        safe()
         await refresh_msg(inter.member.guild)
         await inter.send('User was removed from the list!', ephemeral=True)
     elif op == 'post':
@@ -190,6 +192,7 @@ async def available_command(inter: Interaction):
         ch_id = ch.id
         msg_id = None
         await refresh_msg(inter.member.guild)
+        safe()
         await inter.send('List was posted!', ephemeral=True)
 
 
