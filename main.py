@@ -83,7 +83,7 @@ async def set_available(inter: Interaction, av: int):
         await inter.send('You are not on the list!', ephemeral=True)
         return
     usr_states[str(inter.member.id)] = av
-    await inter.defer_message_edit()
+    await inter.defer_update_message()
     await refresh_msg(inter.member.guild)
 
 
@@ -181,7 +181,7 @@ async def available_command(inter: Interaction):
         if str(usr) not in usr_states.keys():
             await inter.send('User is not on the list!', ephemeral=True)
             return
-        usr_states.pop(usr, None)
+        usr_states.pop(str(usr), None)
         await refresh_msg(inter.member.guild)
         await inter.send('User was removed from the list!', ephemeral=True)
     elif op == 'post':
@@ -221,36 +221,58 @@ async def send_raw_message_command(inter: Interaction):
                 TextInput(
                     'value',
                     'Paste json here',
-                    TextInputType.PARAGRAPH
+                    TextInputType.PARAGRAPH,
                 )
             ])
         ]
     ))
 
 
-@client.event(Event.GUILD_JOINED)
-async def on_guild_joined(guild: Guild):
-    ac = client.get_application_commands('available', ApplicationCommandType.CHAT_INPUT)
-    roles = [{
-        'id': guild.owner_id.id,
-        'type': 2,
-        'permission': True
-    }]
-    for role in guild.roles.values():
-        if Permissions.ADMINISTRATOR in role.permissions:
-            roles.append({
-                'id': role.id,
-                'type': 1,
-                'permission': True
-            })
-    await ac.set_permissions(guild.id, roles)
-    ac = client.get_application_commands('send-raw-message', ApplicationCommandType.CHAT_INPUT)
-    await ac.set_permissions(guild.id, roles)
+@client.interaction_handler('edit_raw_message_modal_{var}')
+async def edit_raw_message_modal(inter: Interaction):
+    ch, _msg_id = inter.custom_id_var.split('|')
+    await inter.defer_send(ephemeral=True)
+    channel = inter.member.guild.get_channel(int(ch))
+    data = json.loads(inter.data.components['value']['value'])
+    embed = data.get('embed')
+    content = data.get('content')
+    components = data.get('components')
+    await channel.edit_message(_msg_id, content=content, embeds=[embed], components=components)
+    await inter.send_followup(f'Message was edited!', ephemeral=True)
 
+
+async def edit_raw_message_command(inter: Interaction):
+    if inter.message.author_id.id != client.application.id:
+        await inter.send('Can only edit messages send by this bot!', ephemeral=True)
+        return
+    data = {
+        'embed': inter.message.embeds[0] if inter.message.embeds is not None else None,
+        'content': inter.message.content,
+        'components': inter.message.components
+    }
+    await inter.send_modal(Modal(
+        f'edit_raw_message_modal_{inter.message.channel_id.id}|{inter.message.id}',
+        'Edit a raw message',
+        components=[
+            ActionRow([
+                TextInput(
+                    'value',
+                    'Paste json here',
+                    TextInputType.PARAGRAPH,
+                    value=json.dumps(data, indent=4)
+                )
+            ])
+        ]
+    ))
+
+    pass
+
+
+admin_perms = str(Permissions.ADMINISTRATOR.value)
 
 ap = ApplicationCommand(name='available',
                         default_permission=False,
-                        default_member_permissions=8,
+                        default_member_permissions=admin_perms,
                         dm_permission=False,
                         description='Available Mods Manager',
                         options=[
@@ -291,7 +313,7 @@ client.register_command(ap, available_command, True, None)
 ap = ApplicationCommand(name='send-raw-message',
                         description='Send a message to a channel, may include embeds',
                         default_permission=False,
-                        default_member_permissions=8,
+                        default_member_permissions=admin_perms,
                         dm_permission=False,
                         options=[
                             ApplicationCommandOption(
@@ -302,6 +324,10 @@ ap = ApplicationCommand(name='send-raw-message',
                             )
                         ])
 client.register_command(ap, send_raw_message_command, True, None)
+ap = ApplicationCommand(name='Edit Message',
+                        type=ApplicationCommandType.MESSAGE,
+                        default_member_permissions=admin_perms)
+client.register_command(ap, edit_raw_message_command, True, None)
 
 load()
 
