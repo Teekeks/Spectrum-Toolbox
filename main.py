@@ -242,16 +242,17 @@ async def edit_raw_message_modal(inter: Interaction):
 
 
 async def edit_raw_message_command(inter: Interaction):
-    if inter.message.author_id.id != client.application.id:
+    message = inter.data.messages[inter.data.target_id.id]
+    if message.author_id.id != client.application.id:
         await inter.send('Can only edit messages send by this bot!', ephemeral=True)
         return
     data = {
-        'embed': inter.message.embeds[0] if inter.message.embeds is not None else None,
-        'content': inter.message.content,
-        'components': inter.message.components
+        'embed': message.embeds[0] if message.embeds is not None else None,
+        'content': message.content,
+        'components': message.components
     }
     await inter.send_modal(Modal(
-        f'edit_raw_message_modal_{inter.message.channel_id.id}|{inter.message.id}',
+        f'edit_raw_message_modal_{message.channel_id.id}|{message.id}',
         'Edit a raw message',
         components=[
             ActionRow([
